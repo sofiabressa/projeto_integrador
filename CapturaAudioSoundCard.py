@@ -9,7 +9,7 @@ mic = sc.get_microphone(speaker.name, include_loopback=True)
 # Define a taxa de amostragem, o número de frames por amostra e a duração da gravação em segundos
 samplerate = 44100
 numframes = 1024
-duration_seconds = 10  # Duração do áudio em segundos
+duration_seconds = 10
 output_file = "audio_capturado_soundcard.wav"
 
 total_frames = duration_seconds * samplerate

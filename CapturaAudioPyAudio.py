@@ -2,20 +2,16 @@ import pyaudio
 import wave
 
 # Parâmetros da gravação
-FORMAT = pyaudio.paInt16  # Formato de áudio (16-bit PCM)
+FORMAT = pyaudio.paInt16
 CHANNELS = 2  # Número de canais (estéreo)
 RATE = 44100  # Taxa de amostragem (44.1kHz)
 CHUNK = 1024  # Número de frames por buffer
-DURATION = 10  # Duração da gravação em segundos
-OUTPUT_FILE = "audio_capturado_pyaudio.wav"  # Nome do arquivo de saída
+DURATION = 10  
+OUTPUT_FILE = "audio_capturado_pyaudio.wav"
 
-# Inicializa PyAudio
 p = pyaudio.PyAudio()
-
-# Selecione o índice do dispositivo Stereo Mix ou equivalente
 device_index = 3
 
-# Configura o stream para captura do áudio
 stream = p.open(format=FORMAT,
                 channels=CHANNELS,
                 rate=RATE,
