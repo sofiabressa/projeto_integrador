@@ -18,8 +18,8 @@ def desenhar_radar(angulo):
     
     # Converter ângulo em coordenadas no círculo
     raio = 150
-    x = int(200 + raio * math.cos(math.radians(angulo)))
-    y = int(200 - raio * math.sin(math.radians(angulo)))
+    x = int(200 + raio * math.cos(math.radians(angulo + 90)))
+    y = int(200 - raio * math.sin(math.radians(angulo + 90)))
 
     # Desenhar ponto no radar
     cv2.circle(img, (x, y), 10, (0, 0, 255), -1)
@@ -27,35 +27,44 @@ def desenhar_radar(angulo):
     cv2.imshow("Radar de Som", img)
     cv2.waitKey(10)
 
-# Calculo do ângulo do som
+# Cálculo do ângulo do som
 def calcular_angulo_som(canais, samplerate):
     # Normalizar os sinais (remover offset DC)
     canais = canais - np.mean(canais, axis=0)
 
+    # Calcular o volume de cada canal
     volumes = np.mean(np.abs(canais), axis=0)
     volume_total = np.sum(volumes)
 
-    # Se o volume for menor que o limiar
+    # Se o volume for menor que o limiar, centralizar a bolinha
     if volume_total < LIMIAR_SILENCIO:
-        historico_angulo.clear()  # Resetar histórico para evitar erro
-        return 0  # Centralizar a bolinha
+        historico_angulo.clear()
+        return 0 
 
-    # Determinar o canal com maior volume (usando uma média ponderada entre todos os canais)
-    max_volume_index = np.argmax(volumes)
-
-    # Mapear o canal com maior volume para uma direção específica
+    # Mapear os canais para ângulos específicos (em graus)
     angulos = {
-        0: 0,   # Centro
-        1: -45, # Frente esquerda
-        2: 45,  # Frente direita
-        3: -90, # Trás esquerda
-        4: 90,  # Trás direita
-        5: -135, # Esquerda
-        6: 135, # Direita
-        7: 180  # Subwoofer (opcional)
+        0: 30,   # Frente Esquerda (FL)
+        1: 330,  # Frente Direita (FR)  (360 - 30)
+        2: 0,    # Centro (C)
+        3: 90,   # Lateral Esquerda (SL)
+        4: 270,  # Lateral Direita (SR)
+        5: 150,  # Trás Esquerda (RL)
+        6: 210,  # Trás Direita (RR)
+        7: None  # Subwoofer (LFE)
     }
-    
-    angulo_final = angulos.get(max_volume_index, 0)
+
+    # Calcular a média ponderada dos ângulos com base nos volumes
+    angulo_final = 0
+    peso_total = 0
+    for i, volume in enumerate(volumes):
+        if i in angulos and angulos[i] is not None:  # Ignorar o subwoofer
+            angulo_final += angulos[i] * volume
+            peso_total += volume
+
+    if peso_total > 0:
+        angulo_final /= peso_total  # Normalizar pelo peso total
+    else:
+        angulo_final = 0
 
     # Aplicar suavização usando média móvel
     historico_angulo.append(angulo_final)
@@ -63,7 +72,7 @@ def calcular_angulo_som(canais, samplerate):
 
     return angulo_suavizado
 
-# Processamento de audio
+# Processamento de áudio
 def processar_audio_em_tempo_real(mic, samplerate, numframes):
     try:
         with mic.recorder(samplerate=samplerate) as recorder:
@@ -82,7 +91,7 @@ def processar_audio_em_tempo_real(mic, samplerate, numframes):
                     print("O dispositivo não possui 7.1 canais. Direção não pode ser calculada.")
     except KeyboardInterrupt:
         print("\nProcessamento de áudio encerrado.")
-        cv2.destroyAllWindows()  # Fecha a janela do radar
+        cv2.destroyAllWindows()
 
 def main():
     speakers = sc.all_speakers()

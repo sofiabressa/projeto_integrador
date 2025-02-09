@@ -5,7 +5,7 @@ import math
 from collections import deque
 
 # Filtro de suavização
-historico_angulo = deque(maxlen=5)  # Média móvel para suavizar
+historico_angulo = deque(maxlen=5)
 
 # Limiar de silêncio (se o volume for menor que isso, zeramos o ângulo)
 LIMIAR_SILENCIO = 0.01  
@@ -18,8 +18,8 @@ def desenhar_radar(angulo):
     
     # Converter ângulo em coordenadas no círculo
     raio = 150
-    x = int(200 + raio * math.cos(math.radians(angulo)))
-    y = int(200 - raio * math.sin(math.radians(angulo)))
+    x = int(200 + raio * math.cos(math.radians(angulo + 90)))
+    y = int(200 - raio * math.sin(math.radians(angulo + 90)))
 
     # Desenhar ponto no radar
     cv2.circle(img, (x, y), 10, (0, 0, 255), -1)
@@ -27,51 +27,35 @@ def desenhar_radar(angulo):
     cv2.imshow("Radar de Som", img)
     cv2.waitKey(10)
 
-# Calculo do ângulo do som
+# Cálculo do ângulo do som para estéreo
 def calcular_angulo_som(left_channel, right_channel, samplerate):
-    # Normalizar os sinais 
+    # Normalizar os sinais (remover offset DC)
     left_channel = left_channel - np.mean(left_channel)
     right_channel = right_channel - np.mean(right_channel)
 
-    # Calcular volume médio
+    # Calcular volume de cada canal
     volume_left = np.mean(np.abs(left_channel))
     volume_right = np.mean(np.abs(right_channel))
-    volume_total = (volume_left + volume_right) / 2
+    volume_total = volume_left + volume_right
 
-    # Se o volume for menor que o limiar, considerar silêncio
+    # Se o volume for menor que o limiar, centralizar a bolinha
     if volume_total < LIMIAR_SILENCIO:
-        historico_angulo.clear()  # Resetar histórico para evitar erro
-        return 0  # Centralizar a bolinha
+        historico_angulo.clear()
+        return 0
 
-    # Tempo de atraso entre os canais
-    correlation = np.correlate(left_channel, right_channel, mode='full')
-    lag = np.argmax(correlation) - (len(left_channel) - 1)
-    time_difference = lag / samplerate
-
-    # Diferença de volume entre os canais
+    # Calcular a diferença de volume entre os canais
     volume_diff = (volume_left - volume_right) / (volume_left + volume_right + 1e-6)
 
-    # Ajustar pesos para equilíbrio entre o tempo de atraso e a diferença dos volumes
-    peso_itd = 0.7
-    peso_ild = 0.3
-
-    # Normalizar tempo de atraso para ±90°
-    max_time_difference = 0.0008
-    angulo_itd = np.clip((time_difference / max_time_difference) * 90, -90, 90)
-
-    # Converter para ângulo (-90 a 90 baseado na diferença de volume)
-    angulo_ild = np.clip(volume_diff * 90, -90, 90)
-
-    # Combinar os dois cálculos para um ângulo mais preciso
-    angulo_final = (peso_itd * angulo_itd) + (peso_ild * angulo_ild)
+    # Normalizar a diferença de volume para o intervalo [-90, 90]
+    angulo_diff = np.clip(volume_diff * 90, -90, 90)
 
     # Aplicar suavização usando média móvel
-    historico_angulo.append(angulo_final)
+    historico_angulo.append(angulo_diff)
     angulo_suavizado = np.mean(historico_angulo)
 
     return angulo_suavizado
 
-# Processamento de audio
+# Processamento de áudio
 def processar_audio_em_tempo_real(mic, samplerate, numframes):
     try:
         with mic.recorder(samplerate=samplerate) as recorder:
